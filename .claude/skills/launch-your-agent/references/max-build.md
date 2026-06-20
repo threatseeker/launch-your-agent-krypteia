@@ -143,7 +143,9 @@ user — it's the biggest difference from CMA.
   "total_cost_usd": 0, "usage": { }, "stop_reason": "end_turn" }
 ```
 
-Read `.result` (the final text) and `.is_error` (the failure flag).
+Read `.result` (the final text) and `.is_error` (the failure flag). **Caveat (verified on the live
+CLI):** when you pass `--json-schema`, the structured object lands in a separate **`structured_output`**
+field and **`.result` is empty** — so the judge (§5) must read `env["structured_output"]`, not `.result`.
 
 **Parse with python, NOT jq** — the `result` field embeds the agent's output with literal
 newlines/control characters that jq rejects (same gotcha as CMA's session payloads):
@@ -192,6 +194,9 @@ concept and `outcome.md` file stay (same name as CMA); only the grader implement
   "criteria": [ { "name": "<rubric criterion>", "pass": true, "evidence": "<why>" } ],
   "explanation": "<overall>" }
 ```
+
+`judge.sh` reads this object from the run envelope's **`structured_output`** field (with `--json-schema`,
+`.result` is empty), and exits **0** on `verdict: "pass"`, **2** on fail — so `run.sh`/launchd/CI can branch.
 
 ### The iteration loop (the `max_iterations` analog)
 

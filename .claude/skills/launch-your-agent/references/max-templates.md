@@ -254,16 +254,21 @@ VERDICT_JSON="$(claude -p "$JUDGE_TASK" \
   --tools "" \
   --output-format json)"
 
-# Unwrap the run envelope (.result holds the judge's JSON string), then read the verdict.
-# Pass the captured JSON via a FILE (never interpolated into the python source) so a stray ''' or
-# trailing backslash in the text can't break the literal — python3, not jq (.result has control chars).
+# Read the verdict. IMPORTANT: with --json-schema the structured object lands in the envelope's
+# `structured_output` field — `.result` is EMPTY on schema runs (verified against the live CLI).
+# Pass the captured JSON via a FILE (never interpolated into the python source) so stray quotes /
+# backslashes in any text can't break the literal — python3, not jq.
 ENVELOPE="$(mktemp)"; trap 'rm -f "$ENVELOPE"' EXIT
 printf '%s' "$VERDICT_JSON" >"$ENVELOPE"
 python3 - "$ENVELOPE" <<'PY'
 import json, sys
 with open(sys.argv[1]) as f:
     env = json.JSONDecoder(strict=False).decode(f.read())
-inner = json.loads(env["result"]) if isinstance(env.get("result"), str) else env.get("result", {})
+# --json-schema → env["structured_output"] (a dict). Fall back to .result for non-schema judges.
+inner = env.get("structured_output")
+if inner is None:
+    r = env.get("result")
+    inner = json.loads(r) if isinstance(r, str) and r.strip() else (r or {})
 print(json.dumps(inner, indent=2))
 sys.exit(0 if inner.get("verdict") == "pass" else 2)
 PY
