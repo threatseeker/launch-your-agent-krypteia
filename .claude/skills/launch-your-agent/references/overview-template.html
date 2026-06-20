@@ -1,6 +1,41 @@
 <!doctype html>
 <!-- Copyright 2026 Anthropic PBC -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
+<!--
+  ════════════════════════════════════════════════════════════════════════════
+  DUAL-TRACK SCHEMA TEMPLATE — keyed on build-sheet.json `build_target`
+  ════════════════════════════════════════════════════════════════════════════
+  This file ships TWO complete, self-contained example renders of the same
+  schema page. The generator picks ONE based on build-sheet.json:
+
+    build_target: "cma"             → keep the [data-build-target="cma"] section,
+                                       delete the [data-build-target="max"] section.
+    build_target: "claude-code-max" → keep the [data-build-target="max"] section,
+                                       delete the [data-build-target="cma"] section.
+
+  Both sections share the SAME <style> block and the SAME visual language; only
+  the node LABELS and the real FIELD/FLAG each node maps to differ per track.
+
+  Node → real-field mapping (annotate exactly like the live render does):
+    CMA  (cloud, hosted, metered API key, per-user vaults)
+      🗓️ Deployment      → cloud cron deployment (cron expression / timezone)
+      📦 environment      → cloud sandbox (type/networking/packages)
+      🤖 Agent            → server agent (model + system prompt)
+      🛠️ Tools            → tools[] / agent_toolset_*
+      🧠 Memory store     → resources[] · memory_store
+      🔌 Connectors+🔐 vaults → mcp_servers[] + vault_ids[]  (vault = per-run credential)
+      🎯 Outcome          → user.define_outcome · rubric.content · max_iterations (server grader)
+    MAX  (your machine, OAuth login, NO API key, NO per-run cost)
+      🗓️ Trigger          → launchd <label>.plist StartCalendarInterval  (or /schedule routine, or on-demand LAUNCH.md)
+      💻 environment       → your machine / working dir  (NO cloud sandbox, NO 🔐 vault)
+      🤖 Agent (subagent) → .claude/agents/<Name>.md  (frontmatter model: / tools:, body = system prompt)
+      🛠️ Tools            → subagent `tools:` allowlist  /  run.sh --allowedTools / --tools
+      🧠 Memory           → local memory/ files the agent reads+writes
+      🔌 Connectors       → your already-authenticated MCP servers (.mcp.json / ~/.claude.json) — run.sh --mcp-config
+      📄 Skills           → skills[] available to the subagent
+      🎯 Outcome          → outcome.md rubric  +  ⚖️ judge (judge subagent in-session / claude -p --json-schema in judge.sh)
+  ════════════════════════════════════════════════════════════════════════════
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -130,6 +165,15 @@
 
   a.console { color:var(--live-bright); text-decoration:none; border-bottom:1px dotted rgba(34,134,92,.5); }
   a.console:hover { border-bottom-style:solid; }
+
+  /* ── Max-track accents (clay, to distinguish the judge from the green CMA grader) ── */
+  .statepill.local { background:rgba(173,87,36,.08); border:1px solid rgba(173,87,36,.35); color:var(--clay); }
+  .led.local { background:var(--clay); animation:ledPulse 2s ease-in-out infinite; }
+  .node.judge { border-color:rgba(173,87,36,.30); }
+  .tag.local { color:var(--clay); border-color:rgba(173,87,36,.45); }
+  /* the Max "your machine" frame replaces the cloud sandbox frame — solid, not airless */
+  .env-frame.local { border-color:rgba(173,87,36,.30); background:rgba(173,87,36,.04); }
+  .env-frame.local .env-tab { border-color:rgba(173,87,36,.35); color:var(--clay); }
   footer { padding:20px 2px 0; color:var(--mut); font-family:var(--mono); font-size:11px; }
   footer a { color:var(--sub); }
 
@@ -145,6 +189,13 @@
 </head>
 <body>
 <div class="wrap">
+
+<!-- ════════════════════════════════════════════════════════════════════
+     TRACK A · build_target: "cma"  —  Claude Managed Agents (hosted cloud)
+     KEEP this whole <section> when build-sheet.json build_target === "cma";
+     DELETE it when build_target === "claude-code-max".
+     ════════════════════════════════════════════════════════════════════ -->
+<section data-build-target="cma">
 
   <!-- ── top bar: identity + live state + stat strip ── -->
   <div class="topbar">
@@ -329,6 +380,236 @@
   </div>
 
   <footer>generated from build-sheet.json by claude code · live runs &amp; traces: <a href="https://platform.claude.com/workspaces/default/agents">open the console</a> (your key's workspace — swap "default" if yours differs)</footer>
+
+</section>
+<!-- ════ END TRACK A (cma) ════ -->
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     TRACK B · build_target: "claude-code-max"  —  Claude Code (Max)
+     Runs on YOUR machine under your Claude Code Max plan via OAuth.
+     NO ANTHROPIC_API_KEY · NO per-run cost · NO cloud sandbox · NO 🔐 vault.
+     KEEP this whole <section> when build-sheet.json build_target ===
+     "claude-code-max"; DELETE it when build_target === "cma".
+     Every node below maps to a REAL Claude Code field/flag — annotated inline.
+     ════════════════════════════════════════════════════════════════════ -->
+<section data-build-target="max">
+
+  <!-- ── top bar: identity + local state + stat strip ── -->
+  <div class="topbar">
+    <div class="ident">
+      <div class="sigil">🤖</div>
+      <div>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <h1>competitor-digest</h1>
+          <!-- swap to: <span class="statepill local"><span class="led local"></span>SCHEDULED · LIVE</span> once the launchd job is loaded -->
+          <span class="statepill planned"><span class="led planned"></span>PLANNED · NOT SCHEDULED</span>
+        </div>
+        <!-- "Claude Code (Max)" + the user/host; no workspace, no API key -->
+        <div class="byline">Claude Code (Max) · runs as you · mac-studio · OAuth (no API key) · created 2026-06-14</div>
+      </div>
+    </div>
+    <div class="stats">
+      <!-- model = subagent frontmatter `model:` (alias or full slug); omit → inherits -->
+      <div class="stat"><div class="stat-k">Model</div><div class="stat-v">claude-opus-4-8</div></div>
+      <!-- runs = launchd StartCalendarInterval (or /schedule routine, or on-demand) -->
+      <div class="stat"><div class="stat-k">Runs</div><div class="stat-v">Mon 7:00 <span class="dim">local</span></div></div>
+      <!-- the local equivalents of CMA's Console deep links are real files / launchctl labels -->
+      <div class="stat"><div class="stat-k">Subagent</div><div class="stat-v"><span class="dim">.claude/agents/</span></div></div>
+      <div class="stat"><div class="stat-k">launchd</div><div class="stat-v"><span class="dim">after first pass</span></div></div>
+    </div>
+  </div>
+
+  <!-- the founder's own words from the interview — quote or closely paraphrase; never invent specifics they didn't state -->
+  <p class="problem">Every Monday I spend ~3 hours pulling competitor pricing and feature changes into a digest for the team.</p>
+
+  <!-- ── schema: trigger → worker (on your machine) → output & grading ── -->
+  <p class="lane-label">System schema</p>
+  <div class="pipeline">
+
+    <div class="col">
+      <p class="col-title">Trigger</p>
+      <!-- The trigger node matches how the Max agent actually starts:
+           · scheduled (Mac awake)  → 🗓️ launchd plist (this example): StartCalendarInterval fires run.sh
+           · scheduled (laptop closed) → ☁️ /schedule routine (the `schedule` skill) instead of launchd
+           · on-demand               → ▶️ "On-demand run" as the primary node (meta: manual · LAUNCH.md),
+                                        with "🗓️ launchd — not scheduled, see the version rail" as a footer/ghost
+           run.sh ALWAYS runs OUTSIDE a Claude Code session (CLAUDECODE unset) so it may use `claude -p`. -->
+      <div class="node key grow">
+        <div class="node-head"><span class="node-icon">🗓️</span><h2>launchd job</h2><span class="node-meta">StartCalendarInterval · <b>Mon 07:00</b></span></div>
+        <div class="node-body">
+          <div class="field"><div class="field-k">&lt;label&gt;.plist · StartCalendarInterval</div><strong>Every Monday · 7:00 AM</strong> <span class="sub small">Weekday 1 · Hour 7 · Minute 0 (machine-local)</span></div>
+          <div class="field"><div class="field-k">label</div><span class="mono">com.launch-your-agent.competitor-digest</span></div>
+          <div class="field"><div class="field-k">ProgramArguments</div><p class="small sub"><code>/bin/bash</code> <code>run.sh</code> — fires <code>claude -p</code> headless. <strong>ANTHROPIC_API_KEY absent</strong> from the plist env → OAuth keychain (Max) is used.</p></div>
+          <div class="field"><div class="field-k">load · test</div><p class="small sub"><code>launchctl bootstrap gui/$(id -u) &lt;plist&gt;</code> · fire now: <code>launchctl kickstart -k gui/$(id -u)/&lt;label&gt;</code>. Caveat: the Mac must be awake — for laptop-closed, swap to ☁️ <code>/schedule</code> routine.</p></div>
+        </div>
+        <div class="node-foot">▶️ Also runs on demand any time — <code>LAUNCH.md</code> runs the same <code>run.sh</code> against the same <code>outcome.md</code>.</div>
+      </div>
+    </div>
+
+    <div class="joint" aria-hidden="true"></div>
+
+    <div class="col">
+      <p class="col-title">Worker</p>
+      <!-- 💻 environment = YOUR machine / working dir. There is NO cloud sandbox and NO 🔐 vault on Max:
+           the agent runs AS you and reuses your existing logins. -->
+      <div class="env-frame local">
+        <span class="env-tab">💻 environment · your machine · cwd: ~/agents/competitor-digest · runs as you · no sandbox · no 🔐 vault</span>
+
+        <div class="node key">
+          <!-- 🤖 Agent = .claude/agents/<Name>.md — frontmatter model: + body = system prompt -->
+          <div class="node-head"><span class="node-icon">🤖</span><h2>Subagent — competitor-digest</h2><span class="node-meta">.claude/agents/ · <b>model: opus</b></span></div>
+          <div class="node-body">
+            <div class="field"><div class="field-k">.claude/agents/competitor-digest.md · body = system prompt</div>
+              <p class="small">Researches the 5 named competitors' public sites, pricing pages, and changelogs; writes a weekly digest to <code>./outputs/digest.md</code>.</p></div>
+            <div class="field"><div class="field-k">In-session launch (build &amp; first run)</div>
+              <p class="small sub">Spawned via the <strong>Agent/Task tool</strong> (native subagent, runs on Max) — <strong>never</strong> a nested <code>claude -p</code>: inside a session <code>CLAUDECODE=1</code> and a nested CLI hangs.</p></div>
+          </div>
+        </div>
+
+        <div class="attach-grid">
+          <div class="attach">
+            <h3>🛠️ Tools</h3>
+            <!-- frontmatter `tools:` allowlist (NOT permissions.allow[]); run.sh mirrors with --allowedTools / --tools -->
+            <p><code>tools:</code> in frontmatter · <code>run.sh --allowedTools</code><br><span class="tag on">WebSearch</span><span class="tag on">WebFetch</span><span class="tag">Bash</span><span class="tag">Read</span><span class="tag">Write</span><span class="tag">Edit</span><span class="tag">Glob</span><span class="tag">Grep</span></p>
+          </div>
+          <div class="attach">
+            <h3>🧠 Memory</h3>
+            <!-- local memory/ files the agent reads + writes (no server-side resource) -->
+            <p><code>memory/</code> · local files <span class="tag local">read+write</span> <strong>competitor-history</strong> — last week's snapshot per competitor, so runs report changes, not re-descriptions.</p>
+          </div>
+          <div class="attach ghost">
+            <h3>🔌 Connectors</h3>
+            <!-- your ALREADY-authenticated MCP servers: .mcp.json / ~/.claude.json; run.sh --mcp-config to scope -->
+            <p><code>.mcp.json</code> / <code>~/.claude.json</code> · <code>run.sh --mcp-config</code> — empty in v0, public web only. <strong>No per-run vault</strong>: the login already exists. Notion + Slack sit in the version rail below.</p>
+          </div>
+          <div class="attach ghost">
+            <h3>📄 Skills</h3>
+            <p><code>skills[]</code> — empty; plain markdown output.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="joint" aria-hidden="true"></div>
+
+    <div class="col">
+      <p class="col-title">Output &amp; grading</p>
+
+      <div class="node">
+        <div class="node-head"><span class="node-icon">📤</span><h2>Deliverable</h2><span class="node-meta">local file</span></div>
+        <div class="node-body">
+          <!-- output is a real local file in ./outputs — no Files API on Max -->
+          <p class="small"><code>./outputs/digest.md</code> — the weekly competitor digest, written straight to your working dir.</p>
+          <div class="field"><div class="field-k">Guardrails in effect</div>
+            <!-- max_iterations analog = the run→judge→re-run bash loop bound in run.sh -->
+            <span class="tag">run.sh loop: max 3 tries</span><span class="tag">drafts only — no write connectors wired</span><span class="tag">--permission-mode acceptEdits</span></div>
+        </div>
+      </div>
+
+      <div class="node key grow">
+        <div class="node-head"><span class="node-icon">🎯</span><h2>Outcome</h2><span class="node-meta"><b>outcome.md</b> · rubric</span></div>
+        <div class="node-body">
+          <p class="small sub" style="margin-bottom:8px;">Your definition of done — <code>outcome.md</code> (same file name as CMA), checked by the ⚖️ judge below every run.</p>
+          <ol class="rubric small">
+            <li>digest.md exists and covers all 5 competitors listed in the kickoff</li>
+            <li>Every pricing or feature change has a source link</li>
+            <li>Each competitor section ends with a one-line "so what for us"</li>
+            <li>Anything unchanged since last week sits in one "no movement" line</li>
+            <li>No claim without a source or an explicit "unverified" tag</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="node judge grow">
+        <!-- ⚖️ judge = the Max stand-in for CMA's server-side grader. NO built-in grader exists; you build it. -->
+        <div class="node-head"><span class="node-icon">⚖️</span><h2>Judge</h2><span class="node-meta"><b>judge.sh</b> · --json-schema</span></div>
+        <div class="node-body">
+          <p class="small sub" style="margin-bottom:6px;">Grades the run against <code>outcome.md</code> and returns a structured verdict.</p>
+          <div class="field"><div class="field-k">in-session (build + first run)</div><p class="small">a <strong>judge subagent</strong> via the Agent/Task tool reads the output + rubric and returns pass/fail per criterion.</p></div>
+          <div class="field"><div class="field-k">unattended (scheduled)</div><p class="small"><code>claude -p --json-schema</code> in <code>judge.sh</code> emits <code>{verdict, criteria[], explanation}</code>; run.sh loops if it fails and tries remain.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── evals + run log ── -->
+  <div class="lane-grid">
+    <div class="lane">
+      <div class="lane-head"><span class="node-icon">📜</span><h2>Runs · run log</h2><span class="lane-meta">no runs yet</span></div>
+      <div class="lane-body">
+        <div class="overflow">
+        <table>
+          <thead><tr><th>Run</th><th>Output</th><th>Rubric</th><th>Verdict</th><th>Note</th></tr></thead>
+          <tbody>
+            <!-- on Max there is no session_id; the run-id is the run.sh timestamp / log file -->
+            <tr><td>—</td><td class="mono">—</td><td>—</td><td><span class="tag">no runs yet</span></td><td class="sub">The first run (Agent/Task tool or run.sh) fills this in.</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p class="small sub" style="margin:.5em 0 0;">Unattended logs land in <code>~/Library/Logs/launch-your-agent/</code> (the plist StandardOutPath/StandardErrorPath).</p>
+      </div>
+    </div>
+    <div class="lane">
+      <div class="lane-head"><span class="node-icon">🧪</span><h2>Evals</h2><span class="lane-meta">3 cases · regression</span></div>
+      <div class="lane-body">
+        <div class="overflow">
+        <table>
+          <thead><tr><th>Case</th><th>Known-good answer</th><th>Last verdict</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">week-of-may-25</td><td>Lamis's hand-written digest</td><td><span class="tag">not run yet</span></td></tr>
+            <tr><td class="mono">week-of-jun-01</td><td>Hand-written digest</td><td><span class="tag">not run yet</span></td></tr>
+            <tr><td class="mono">week-of-jun-08</td><td>Hand-written digest</td><td><span class="tag">not run yet</span></td></tr>
+          </tbody>
+        </table>
+        </div>
+        <!-- evals/run-evals.sh loops each case through run.sh + judge.sh (same loop as a live run) -->
+        <p class="small sub" style="margin:.5em 0 0;">Case 1 is the v0 input; the rest are held back. <code>evals/run-evals.sh</code> loops each through run.sh + ⚖️ judge.sh before promoting any new agent version.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── version rail: what ships next ── -->
+  <div class="lane full">
+    <div class="lane-head"><span class="node-icon">🧭</span><h2>Next directions</h2><span class="lane-meta">the version rail</span></div>
+    <div class="lane-body">
+      <div class="rail">
+        <div class="ver">
+          <div class="ver-tag">v1</div>
+          <div class="ver-what">Agent posts the digest to Slack itself</div>
+          <div class="ver-why">Write-action — kept human-in-the-loop for v0</div>
+          <!-- on Max the connector already exists; gate the WRITE, not the credential -->
+          <div class="ver-how">Your Slack MCP server (already authed) + outbox gate; scope <span class="mono">--allowedTools "mcp__slack__*"</span></div>
+        </div>
+        <div class="ver">
+          <div class="ver-tag">v2</div>
+          <div class="ver-what">Pull the internal strategy doc into context</div>
+          <div class="ver-why">Needs the Notion MCP server wired into this run</div>
+          <div class="ver-how">Add your Notion server via <span class="mono">--mcp-config</span> (+ <span class="mono">--strict-mcp-config</span>); reference the doc in the kickoff</div>
+        </div>
+        <div class="ver">
+          <div class="ver-tag">v3</div>
+          <div class="ver-what">Tighten the unattended permission posture</div>
+          <div class="ver-why">Hardening — a scheduled run has no human at the keyboard</div>
+          <!-- name the tradeoff: scoped allowlist + acceptEdits by default; bypass only with explicit opt-in -->
+          <div class="ver-how">Keep the scoped <span class="mono">--allowedTools</span> + <span class="mono">--permission-mode acceptEdits</span>; only <span class="mono">dontAsk</span>/<span class="mono">--dangerously-skip-permissions</span> if you accept full unattended tool access</div>
+        </div>
+        <div class="ver">
+          <div class="ver-tag">always</div>
+          <div class="ver-what">Re-run the eval cases before promoting a new version</div>
+          <div class="ver-why">Process habit, not a build task</div>
+          <div class="ver-how"><span class="mono">evals/run-evals.sh</span> against the new agent.md; promote only when verdicts hold</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- on Max there is no Console; the "open the console" link becomes the real local artifacts -->
+  <footer>generated from build-sheet.json by claude code · runs as you on Max (OAuth, no API key) · logs: <code>~/Library/Logs/launch-your-agent/</code> · if a scheduled run 401s, the token expired → <code>claude auth login</code> (or <code>claude setup-token</code> for a long-lived subscription token)</footer>
+
+</section>
+<!-- ════ END TRACK B (claude-code-max) ════ -->
+
 </div>
 </body>
 </html>

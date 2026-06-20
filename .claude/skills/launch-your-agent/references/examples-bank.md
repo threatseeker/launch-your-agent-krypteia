@@ -76,6 +76,39 @@ Personalization rule: change only the name/company/product slots, one sentence o
 
 ---
 
+## 3b. Which archetypes fit which build target
+
+The fork (🤖 Build target) is asked early — but the archetype menu above is a useful tell for *which* track the founder probably wants. The §1–§3 material is all CMA-sourced; that doesn't mean every archetype is CMA-native. Most run beautifully on **Claude Code (Max)** too — and some are a *better* fit there, because the job is the founder's own recurring chore, touches local files, or reuses logins they already have. Tag, then recommend; the founder still chooses.
+
+| Archetype (from §3) | Natural target | Why |
+|---|---|---|
+| 1 · Data analyst | **Either** | Their own export on their disk → 💻 Max (no key, reads the file directly). Same report inside *their product*, multi-tenant → ☁️ CMA. |
+| 2 · Ops responder with approval | **Either** | A solo dev triaging their own alerts → 💻 Max (launchd or `/schedule`). On-call for a team/product, must run laptop-closed → ☁️ CMA. |
+| 3 · Document-producing analyst | **Either** | A doc the founder needs on a cadence → 💻 Max. A graded artifact that's part of a customer deliverable → ☁️ CMA. |
+| 4 · Engineering agent: issue → PR | **Max-leaning** | Runs against *their* repo with *their* gh/GitHub MCP already authenticated → 💻 Max, no vault. Goes ☁️ CMA only when it's a hosted service acting on many tenants' repos. |
+| 5 · Assistant that remembers your users | **CMA** | "Your users," per-end-user memory + vault, customer-facing → ☁️ CMA by definition (multi-tenant). |
+| 6 · Recurring compliance / digest scan | **Max-leaning** | The founder's own scheduled sweep → 💻 Max via launchd (or `/schedule` for laptop-closed). ☁️ CMA when the scan is a product feature run server-side for others. |
+| 7 · Specialist team | **Either** | In-session coordinator over local work → 💻 Max (spawn specialists via the Agent/Task tool). A productized multiagent service → ☁️ CMA. |
+
+**The cut, in one line:** *for-you / your-own-chore / dev task / uses your logins / local files / no per-run billing* → **💻 Claude Code (Max)**. *for-your-product / customer-facing / multi-tenant / must run without your laptop / needs a hosted isolated sandbox* → **☁️ CMA**.
+
+## 3c. Max-native archetypes to offer
+
+These have **no official CMA cookbook** — they're ideal on **Claude Code (Max)** precisely because the value *is* the local machine: no API key (OAuth on the Max plan), direct local-file access, and reuse of MCP servers the founder already authenticated. Offer them when the founder's job rhymes with "my own recurring thing" and the §3 menu feels too productized. Mark them clearly as Max-track examples, not CMA cookbooks.
+
+> Mechanics reminder (state when offering): in-session, the just-built 🤖 agent is fired via the **Agent/Task tool** and graded by a **⚖️ judge subagent** — never a nested `claude -p`. Unattended, the generated `run.sh` uses `claude -p` under **launchd** (or a `/schedule` ☁️ routine for laptop-closed); ANTHROPIC_API_KEY stays unset so the Max OAuth keychain login is used.
+
+| # | Archetype | v0 (today) | Why Max | Natural next directions |
+|---|---|---|---|---|
+| M1 | **Nightly repo health/triage** | Each night, sweep a local repo (build/test/lint, stale branches, TODO/FIXME drift, dependency flags) → write `report-<date>.md` to the project. | Reads the working tree directly, runs the founder's real toolchain, reuses their git auth — no key, no vault, no upload. | launchd at a fixed hour; add a ⚖️ judge so empty/garbled reports re-run; widen to a multi-repo loop; post the digest to Slack only via the outbox/gate pattern. |
+| M2 | **"My morning brief"** | Read local files (today's notes, a tasks file, a project log) **and** the founder's already-authenticated MCP servers (calendar, mail-read) → write `brief-<date>.md` digest. | Zero credential handoff — it just *has* the logins the founder already set up; touches private local files that never leave the machine. | Schedule via launchd for a morning hour (or `/schedule` ☁️ for laptop-closed); 🧠 memory file to carry "what changed since yesterday"; voice/notify hand-off; promote any send action through the outbox gate. |
+| M3 | **Dev-loop fix agent** (on-demand) | Run the test suite, read failures, draft a fix on a scratch branch, re-run, stop with a diff for review — invoked when the founder asks, not on a clock. | Runs in the founder's repo with their tools live; in-session it's literally a subagent spawned via the Agent/Task tool — no key, no schedule, no infra. | Bound the run→judge→re-run loop in `run.sh` for headless/CI use; ⚖️ judge against an outcome rubric; cap iterations; never auto-merge — leave the diff for a human. |
+| M4 | **Inbox / notes triage over local data** | Cluster a local maildir / notes folder / exports by topic or root cause, draft labels or replies into `./outputs/` — **never sends**. | Operates on local data and reuses any already-wired mail-read MCP; the no-send posture is enforced by simply leaving the send tool out of the runner's `--allowedTools`. | Add a real mail MCP for richer reads; outbox the drafts for human review; 🧠 memory to learn the founder's categories over time; gate any "actually send" behind explicit human go. |
+
+All four assume the Max defaults: a scoped `--tools`/`--allowedTools` allowlist plus `--permission-mode acceptEdits` for the unattended runner, write-actions gated out of the runner (outbox under `./outputs/outbox/`) until the founder explicitly wants them firing on their own.
+
+---
+
 ## 4. Other references
 
 - [Quickstart](https://platform.claude.com/docs/en/managed-agents/quickstart) — the minimal four-call launch; also points at `/claude-api managed-agents-onboard` inside Claude Code.

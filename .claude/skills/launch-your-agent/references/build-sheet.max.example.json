@@ -1,0 +1,133 @@
+{
+  "meta": {
+    "founder": "Lamis Mukta",
+    "company": "Acme Analytics",
+    "problem": "Every morning I lose 30 minutes scanning my own repos' overnight commits, my unread security feeds, and yesterday's notes — I want one local markdown brief waiting for me instead.",
+    "created": "2026-06-14",
+    "skill_version": "0.4"
+  },
+  "build_target": "claude-code-max",
+  "agent": {
+    "name": "morning-brief",
+    "model": "claude-opus-4-8",
+    "model_rationale": "Newest Opus-class — runs on the Max subscription via OAuth, so quality first; no per-run cost to weigh against.",
+    "version": null,
+    "system_summary": "Reads overnight git log across the user's ~/code repos, fetches their named security feeds, and skims yesterday's ~/notes; writes a single dated brief to ~/briefs/<date>.md. Runs as the user, reusing their existing logins.",
+    "system_summary_note": "On Claude Code (Max) this is the body of .claude/agents/morning-brief.md — frontmatter (name, model, tools) plus this prompt.",
+    "tools": ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch"],
+    "never_dos": [
+      "Never push, commit, or modify any repo — read git history only",
+      "Never present a guess as a fact; mark anything unverified",
+      "Never write anywhere except ~/briefs/ — drafting only"
+    ]
+  },
+  "outcome": {
+    "description": "Produce today's brief as ~/briefs/<date>.md",
+    "rubric_criteria": [
+      "~/briefs/<date>.md exists and is dated correctly",
+      "Every repo with overnight commits gets a one-line 'what changed' summary",
+      "Each security-feed item carries a source link; unread-but-empty feeds say 'no movement'",
+      "Yesterday's notes are distilled to open threads, not re-pasted",
+      "No claim appears without a source or an explicit 'unverified' tag"
+    ],
+    "judge": "No built-in grader exists on Max — you build it. In-session, a judge subagent (Agent/Task tool) reads the brief plus this rubric and returns a verdict. Unattended, judge.sh runs `claude -p --json-schema` and emits {verdict, criteria:[{name,pass,evidence}], explanation}. The run/judge loop in run.sh re-runs with judge feedback up to max_iterations.",
+    "max_iterations": 3
+  },
+  "run": {
+    "runner": "run.sh",
+    "model": "claude-opus-4-8",
+    "tools": "Bash,Read,Write,Edit,Glob,Grep,WebSearch,WebFetch",
+    "allowedTools": ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch"],
+    "permission_mode": "acceptEdits",
+    "permission_note": "Scoped allowlist plus acceptEdits — the unattended runner can read and write its brief file but is never handed a full bypass. The user did not opt into dontAsk/bypassPermissions.",
+    "output_format": "json",
+    "output_dir": "~/briefs/",
+    "auth_note": "ANTHROPIC_API_KEY is left UNSET so `claude -p` uses the Max OAuth keychain login — no API key, no per-run cost. Never run with --bare. On a 401, the token expired: `claude auth login` to refresh, or `claude setup-token` for a long-lived unattended token.",
+    "nested_claude_note": "run.sh uses `claude -p`, which is fine because launchd runs it OUTSIDE any Claude Code session (CLAUDECODE unset). During the build session itself the agent is fired via the Agent/Task tool and graded by a judge subagent — never a nested `claude -p` inline."
+  },
+  "connections": {
+    "mcp_servers": [
+      {
+        "name": "github",
+        "source": "user's existing ~/.claude.json server",
+        "note": "Already authenticated under the user's login — no per-run credential handoff. Scope headless access with --allowedTools \"mcp__github__*\" if used."
+      }
+    ],
+    "vault_credentials": "N/A on Max — there is no vault. The agent runs AS the user and reuses already-authenticated MCP servers and local logins.",
+    "github": "Reuses the user's existing GitHub MCP login; the agent reads repos locally under ~/code so v0 needs no remote calls.",
+    "notes": "v0 reads only local repos plus public security feeds. The GitHub MCP server is listed for the roadmap (private repo activity) but is not required for the local-only v0."
+  },
+  "skills": [],
+  "memory": {
+    "type": "local",
+    "files": [
+      {
+        "path": "~/.morning-brief/memory/seen.md",
+        "access": "read_write",
+        "purpose": "What the agent reported yesterday — which commits and feed items it already covered — so today's brief reports changes rather than repeating itself."
+      }
+    ],
+    "note": "Plain local markdown the agent reads and appends to, not a CMA memory store. Add the dir with --add-dir if it lives outside the working tree."
+  },
+  "environment": {
+    "type": "local_machine",
+    "machine": "Lamis's MacBook (the user's own laptop, runs as the user)",
+    "working_dir": "~/briefs/",
+    "add_dirs": ["~/code", "~/notes", "~/.morning-brief"],
+    "add_dir_note": "Anything outside the working dir the agent must read is granted with --add-dir; the home dir is not opened wholesale.",
+    "networking": "Inherits the machine's network — WebSearch/WebFetch reach the named public feeds; no cloud sandbox."
+  },
+  "schedule": {
+    "mode": "scheduled",
+    "scheduler": "launchd",
+    "label": "com.launch-your-agent.morning-brief",
+    "plist": "com.launch-your-agent.morning-brief.plist",
+    "start_calendar_interval": "Every day at 6:30 AM (Hour 6, Minute 30)",
+    "human": "Every day at 6:30 AM local time, while the Mac is awake",
+    "env_note": "The plist sets HOME and an explicit full PATH (~/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin — launchd does not inherit the shell PATH) and leaves ANTHROPIC_API_KEY ABSENT so OAuth keychain is used. ProgramArguments -> [\"/bin/bash\", \"<abs path>/run.sh\"]; logs to ~/Library/Logs/launch-your-agent/.",
+    "load": "launchctl bootstrap gui/$(id -u) com.launch-your-agent.morning-brief.plist",
+    "test_fire": "launchctl kickstart -k gui/$(id -u)/com.launch-your-agent.morning-brief (or just run run.sh)",
+    "laptop_closed_alternative": "If the Mac is often asleep at 6:30, use a cloud /schedule routine instead — Anthropic-hosted, runs laptop-closed, counts against Max usage, ~1h min interval. See the /schedule skill."
+  },
+  "evals": {
+    "runner": "evals/run-evals.sh",
+    "cases": [
+      {"name": "morning-of-may-25", "input": "evals/morning-of-may-25/", "expected": "The brief Lamis wrote by hand that morning", "last_verdict": null},
+      {"name": "morning-of-jun-01", "input": "evals/morning-of-jun-01/", "expected": "Hand-written brief", "last_verdict": null},
+      {"name": "morning-of-jun-08", "input": "evals/morning-of-jun-08/", "expected": "Hand-written brief", "last_verdict": null}
+    ],
+    "notes": "run-evals.sh loops each case through run.sh then judge.sh and records the verdict. Case 1 is the v0 input; the other two are held back as a regression check before promoting any new agent version."
+  },
+  "defaults_applied": {
+    "iteration_bound": "run.sh loops run -> judge up to 3 times, re-running with judge feedback on a fail",
+    "write_actions": "None beyond ~/briefs/ — the agent drafts the brief, the user reads it",
+    "auth": "Max OAuth keychain (no API key); ANTHROPIC_API_KEY deliberately unset"
+  },
+  "interface": {
+    "who": "Lamis (just her, on her own machine)",
+    "how": "The brief lands as ~/briefs/<date>.md; she opens it with coffee. Logs in ~/Library/Logs/launch-your-agent/ for run history."
+  },
+  "next_directions": [
+    {
+      "what": "Include private repo activity from GitHub, not just local clones",
+      "why_deferred": "v0 stays fully local; remote calls add a failure surface the morning brief doesn't need yet",
+      "how": "Use the already-authenticated GitHub MCP server with --allowedTools \"mcp__github__*\"; reference the org/repos in the agent prompt"
+    },
+    {
+      "what": "Let the brief post itself to the user's Slack instead of sitting in a file",
+      "why_deferred": "A write-action firing unattended — kept human-in-the-loop for v0",
+      "how": "Add the Slack MCP server (reused from the user's login) and gate the post behind an outbox the user clears, or run only in-session where she can approve it"
+    },
+    {
+      "what": "Run even when the laptop is closed",
+      "why_deferred": "launchd needs the Mac awake; fine while Lamis's machine is on by 6:30",
+      "how": "Move the schedule to a cloud /schedule routine (laptop-closed, counts against Max usage)"
+    },
+    {
+      "what": "Re-run the 3 eval cases before promoting any new agent version",
+      "why_deferred": "Process habit, not a build task",
+      "how": "Run evals/run-evals.sh against the new agent.md; only reload the launchd job when verdicts hold"
+    }
+  ],
+  "ids": {}
+}

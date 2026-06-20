@@ -72,3 +72,14 @@ Use these as the outbox payload shape and/or the custom tool `input_schema`. Tri
   "limit_price":{"type":"number"},
   "time_in_force":{"type":"string","enum":["day","gtc"],"default":"day"}}}
 ```
+
+## On the Claude Code (Max) track
+
+On Max the agent runs **as the user** and reuses the MCP servers they've **already authenticated** (`.mcp.json` project, `~/.claude.json` user) — there's no per-run vault or credential handoff. So connector *mocking* is usually unnecessary: you typically just *have* the server. The reason to reach for a mock here is narrower — to keep a **write-action** from firing while no human is watching the unattended run.
+
+Two ways to gate it, both simpler than the CMA mock above:
+
+- **Scope it out of the runner.** Leave the write tool off the runner's `--allowedTools` / `--tools` allowlist (and out of `mcp__server__*` scoping). The agent can read and draft but physically can't send; widen the allowlist only when the founder wants it firing on its own.
+- **Outbox for review.** Have the agent write each would-be action as a payload (the schemas above still apply) to `./outputs/outbox/<seq>-<action>.json` instead of calling the tool — the founder reads it like a queue of "what it would have done," and you swap to the real call by adding the tool back to the allowlist. No custom-tool stub needed; the `requires_action` custom-tool style is a CMA pattern and doesn't apply unattended on Max.
+
+Write the swap-to-real route into LAUNCH.md / NEXT-DIRECTIONS.md the same way: which already-authenticated MCP tool to add to `--allowedTools`, and that the write goes live the moment it's in the allowlist.

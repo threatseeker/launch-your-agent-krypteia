@@ -4,8 +4,9 @@
     "company": "Acme Analytics",
     "problem": "Every Monday I spend ~3 hours pulling competitor pricing and feature changes into a digest for the team.",
     "created": "2026-06-14",
-    "skill_version": "0.1"
+    "skill_version": "0.4"
   },
+  "build_target": "cma",
   "agent": {
     "name": "competitor-digest",
     "model": "claude-opus-4-8",

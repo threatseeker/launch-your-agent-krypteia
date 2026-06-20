@@ -25,6 +25,23 @@ The interview is not a form — it's a **mapping exercise**. Every answer locks 
 
 **Start from the defaults, build what the job needs.** The interview's job is to find what the founder's v0 actually requires beyond the starting point — not to ask about every primitive, and not to gatekeep the ones the job genuinely needs.
 
+## Q0 — Build target (THE FORK)
+
+Before any of the mapping above resolves, there's one decision that determines *which* set of primitives we map onto: **where this agent runs.** Ask it **after the job is roughly understood** (so the recommendation is grounded) but **before scoping any primitives** — the answer reroutes the whole back half of the interview.
+
+Ask it with **AskUserQuestion**, header **"Build target"**, question **"Where should this agent run?"**, two options:
+
+| Option | Friendly name | One-line decision aid |
+|---|---|---|
+| `claude-code-max` | **Claude Code (Max)** | Runs on *your* machine under your Claude Code Max plan — no API key, no per-run cost, reuses your logins/MCP/local files. Best for your own recurring chores, dev-loop agents, anything touching local files or your already-authenticated tools. |
+| `cma` | **Claude Managed Agents (CMA)** | Hosted in Anthropic's cloud, isolated sandbox, needs your own API key, costs cents per run, per-user vaults. Best for a piece of your *product* — customer-facing/multi-tenant, or anything that must run server-side without your laptop on. |
+
+**Recommend the fitting one, but the founder chooses.** Decision logic: for-you / your-own-chore / dev task / uses your logins / local files / no billing → **Claude Code (Max)**. for-your-product / customer-facing / multi-tenant / must run without your laptop / needs a hosted isolated sandbox → **CMA**.
+
+Record `build_target` in `build-sheet.json` **immediately** — it's the first field, and every file the skill emits keys off it.
+
+**Q1–Q8 below are SHARED across both tracks** — the job, the rubric, inputs, outputs, cadence, boundaries, learning, and shape are interviewed the same way regardless. Only the **primitive mapping** changes: the CMA mapping is the "Primitive-by-primitive map" immediately below; the Max mapping is "How the interview maps onto Claude Code (Max) primitives" further down. Read your build target's mapping section; skip the other.
+
 ## How CMA's architecture maps onto our constructs
 
 Anthropic's own framing of the architecture (from the engineering blog) is **brain / hands / session**: the *brain* is the model + harness (system prompt, decision logic, tool routing), the *hands* are the sandboxed execution environment, and the *session* is the persistent event log of everything that happened. Our constructs sit on top of that one-to-one:
@@ -66,7 +83,41 @@ Reading the table by column: the **interview** column is where the decision gets
 
 From there, **build what the job needs — scoped into versions, not gatekept by primitive**. Any primitive (MCP connector, vault, memory store, custom tool, document/custom skill, schedule, even multiagent) belongs in v0 if the core job doesn't work without it and it's wireable now (e.g. the credential is on hand). Everything the job wants but doesn't need on the first pass is laid out explicitly as **v1, v2, …** in NEXT-DIRECTIONS — a numbered sequence of planned increments, each with its mechanism — so "not in v0" reads as "scheduled for v1", never "cut".
 
+> The four bullets above are the **CMA** starting point. On the **Max track**, the starting point is a single subagent on the newest Opus-class model via `model:`, a scoped tool allowlist, running on your machine as you (Max OAuth — no env, no vault), judged by a judge subagent, on-demand first and launchd added last. Full version in "The starting point (Max track)" further down.
+
 The standing recommendation (not a rule): v0 is **read/analyze/draft only** — write-actions into external systems (send/post/merge/delete/place orders) usually ship in a later version behind an `always_ask` gate, once the founder trusts the output. If the founder explicitly wants a write-action in v0, wire it gated (`always_ask`, or a sandbox/paper variant) rather than refusing — say what the recommendation is and why, then build what they choose.
+
+---
+
+## How the interview maps onto Claude Code (Max) primitives
+
+When `build_target: "claude-code-max"`, the same eight clusters land on a completely different (and simpler) primitive set: a single subagent file, a headless runner, a judge subagent, a launchd job, and local files. There's **no vault and no Claude API key** — the agent runs *as you*, on the Max OAuth login already in your keychain. The mechanics live in `max-build.md` (the phase arc) and `max-templates.md` (the exact file contents); this table is the routing layer between an interview answer and where it lands.
+
+| Interview decision | Lands on the Max track as | Mechanics in |
+|---|---|---|
+| **Q1 — the job** (name, what it does, never-dos) | The subagent: `.claude/agents/<Name>.md` — `name:` + `description:` frontmatter, body = the system prompt; `model:` set to a newest Opus-class alias/slug | `max-build.md` · `max-templates.md` (agent.md) |
+| **Q2 — done** (rubric, iteration bound) | `outcome.md` (same filename as CMA) + the **judge**: in-session a judge subagent (Agent/Task tool) reads output + `outcome.md` and returns a verdict; unattended a `claude -p --json-schema` call in `judge.sh`. `max_iterations` → a bash retry loop bound in `run.sh` | `max-build.md` (grading) · `max-templates.md` (outcome.md, judge.sh) |
+| **Q2b — evidence** (golden set) | Local `evals/` cases + `evals/run-evals.sh` (loop each case through `run.sh` + `judge.sh`, collect verdicts) | `max-templates.md` (evals) |
+| **Q3 — inputs** | On-hand files → `--add-dir <dirs>` on the runner (or the working dir itself); a SaaS behind a login → the **already-authenticated MCP server** you have (`.mcp.json`/`~/.claude.json`), scoped with `--mcp-config <file>` + `--allowedTools "mcp__<srv>__*"`; local files just read in place. **No vault, no per-run credential handoff** — that's the headline simplification vs CMA | `max-build.md` (inputs/MCP) |
+| **Q4 — outputs** | Default → a local `./outputs` dir the runner writes to; spreadsheet/deck/doc/pdf → an Anthropic/document **skill** the subagent invokes; a repeatable house format → a local **custom skill** | `max-build.md` (outputs) · `max-templates.md` |
+| **Q5 — cadence** | "When I ask" → on-demand (`run.sh` by hand, or spawn via Agent/Task in-session); "every Monday at 7" → a **launchd** plist (`<label>.plist`, `StartCalendarInterval`, label `com.launch-your-agent.<slug>`); "laptop must be closed / always-on" → a cloud **`/schedule` routine** instead | `max-build.md` (scheduling) · `max-templates.md` (plist) |
+| **Q6 — boundaries** | Behavioral never-dos → lines in the agent.md body; tool scope → a **scoped `--tools` / `--allowedTools` allowlist** (exactly what the job needs) + `--permission-mode acceptEdits` for unattended; full bypass only on explicit opt-in (name the tradeoff, never silently `--dangerously-skip-permissions`) | `max-build.md` (unattended permissions) |
+| **Q7 — learning** | A **local memory file** (`memory/`) the subagent reads at start and appends to — read it in the prompt, write it as an output. No memory-store API; read-only reference is just a file the prompt says not to edit | `max-build.md` (memory) · `max-templates.md` (memory/) |
+| **Q8 — shape** | One job → a **single subagent**. Genuinely separable specializations or fan-out → the parent agent spawns **multiple subagents via the Agent/Task tool** in-session (or `run.sh` orchestrates several `claude -p` calls). No `multiagent` block — the fan-out is the Agent tool itself | `max-build.md` (shape) |
+
+Pointers, not a re-spec: read `max-build.md` for the dual-track phase arc (build → spawn-and-judge in-session → launchd) and `max-templates.md` for the exact `agent.md` / `run.sh` / `judge.sh` / `<label>.plist` contents. The **nested-claude rule** governs the whole track: never run `claude -p` inline during the build session (`CLAUDECODE=1` hangs it) — fire the just-built agent via the **Agent/Task tool** in-session and grade it with a **judge subagent**; `claude -p` is only for the *unattended* `run.sh`/`judge.sh`, which launchd runs outside any Claude Code session.
+
+### The starting point (Max track)
+
+On the Max track, the starting point is:
+
+- **One subagent**, newest Opus-class model via the `model:` frontmatter field
+- A **scoped tool allowlist** (`tools:` in the agent.md / `--tools` on the runner) — exactly what the job needs, not everything
+- Runs **on your machine, as you** — Max OAuth keychain login, no API key, no per-run cost
+- Judged by a **judge subagent** against `outcome.md` (in-session via Agent/Task; unattended via `claude -p --json-schema`)
+- **On-demand first** (run by hand / spawn via Agent/Task), launchd job added last — only once a run has passed the rubric
+
+Everything beyond that — a connector you'd scope with `--mcp-config`, a local memory file, a fan-out of subagents, a scheduled launchd job or `/schedule` routine — ships in a later version, laid out in `NEXT-DIRECTIONS.md` exactly as on the CMA track.
 
 ---
 
@@ -217,7 +268,7 @@ Interface mapping:
 | Founder + small team, want visibility | Console (sessions/tracing) + the **agent-overview page** we generate. A **generated interface** (Claude Code builds it in a follow-up session — graphical output, results viewer over the Files/Sessions API, or a way to interact with the agent) is the standard tailored-extension offer here when it suits the need — v1, not v0. |
 | Their customers, inside their product | Their app calls the CMA API: session-per-user(or per-job), **vault per end user** (`metadata.external_user_id`), webhooks for completion, their own UI streams events / shows outputs / surfaces `always_ask` confirmations |
 
-Also captured here: model & budget posture — default newest Opus-class (quality first; runs still cost cents); drop to Sonnet-class only if they explicitly want cheaper/faster runs; `speed: fast` only if they ask about latency.
+Also captured here: model & budget posture — default newest Opus-class (quality first; runs still cost cents); drop to Sonnet-class only if they explicitly want cheaper/faster runs; `speed: fast` only if they ask about latency. *(On the Max track there's no per-run cost — runs are covered by the Max subscription — so model posture is pure quality vs latency: newest Opus-class via the `model:` field by default, Sonnet/Haiku only if they want faster.)*
 
 ---
 
